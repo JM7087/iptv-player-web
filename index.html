@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IPTV Web Player JM7087</title>
+    <link rel="shortcut icon" type="imagex/png" href="img/icone.png">
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/all.min.css">
+</head>
+
+<body>
+
+    <header>
+        <h1><i class="fas fa-tv"></i> IPTV Player JM7087</h1>
+    </header>
+
+    <main>
+        <!-- Seção de configuração da playlist -->
+        <section class="playlist-config">
+            <div class="input-group">
+                <input type="text" id="playlist-url" placeholder="Cole aqui a URL da sua playlist M3U...">
+                <button id="btn-carregar" title="Carregar Playlist">
+                    <i class="fas fa-download"></i> Carregar
+                </button>
+            </div>
+            <p class="hint"><i class="fas fa-info-circle"></i> Cole a URL da sua playlist M3U e clique em carregar</p>
+        </section>
+
+        <div class="container">
+            <!-- Sidebar com lista de canais -->
+            <aside class="sidebar">
+                <div class="search-box">
+                    <i class="fas fa-search"></i>
+                    <input type="text" id="busca-canal" placeholder="Buscar canal...">
+                </div>
+                <div class="filtro-box">
+                    <select id="filtro-categoria">
+                        <option value="todos">📁 Todas as categorias</option>
+                    </select>
+                </div>
+                <div class="canais-info">
+                    <span id="total-canais">0 canais</span>
+                </div>
+                <ul id="lista-canais">
+                    <li class="empty-state">
+                        <i class="fas fa-satellite-dish"></i>
+                        <p>Nenhum canal carregado</p>
+                        <small>Adicione uma playlist M3U acima</small>
+                    </li>
+                </ul>
+            </aside>
+
+            <!-- Player de vídeo -->
+            <section class="player-section">
+                <div class="video-container">
+                    <video id="player" controls autoplay></video>
+                    <div class="video-overlay" id="video-overlay">
+                        <i class="fas fa-play-circle"></i>
+                        <p>Selecione um canal para começar</p>
+                    </div>
+                </div>
+                <div class="now-playing">
+                    <i class="fas fa-broadcast-tower"></i>
+                    <span id="canal-atual">Nenhum canal selecionado</span>
+                </div>
+            </section>
+        </div>
+    </main>
+
+    <footer>
+        <div align="center" class="credit texto-rodape">
+            <a href="https://grupo.jm7087.com" class="cor-link-rodape">Grupo JM7087</a>
+            © Copyright 2010-
+            <script type="text/javascript">
+                document.write(new Date().getFullYear());
+            </script>
+            . Todos os direitos reservados. Desenvolvido <span class="cor-nome-dev-rodape"> João Marcos</span><span
+                class="texto-rodape">.
+        </div>
+    </footer>
+
+    <script src="js/hls.js"></script>
+    <script src="js/script.js"></script>
+</body>
+
+</html>
