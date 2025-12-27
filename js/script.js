@@ -123,6 +123,11 @@ function configurarEventListeners() {
         filtroCategoria.addEventListener('change', (e) => {
             categoriaAtual = e.target.value;
             console.log('Categoria selecionada:', categoriaAtual);
+            // Limpar busca ao trocar categoria
+            if (buscaInput) {
+                buscaInput.value = '';
+                termosBusca = '';
+            }
             aplicarFiltros();
         });
         console.log('✓ Filtro categoria configurado');
@@ -250,11 +255,24 @@ function processarPlaylistEmChunks(conteudo) {
                         categorias.add(canalInfo.grupo);
                     }
                 }
-            } else if (linha.length > 4 && linha.indexOf('http') === 0) {
-                canalInfo.url = linha.trim();
-                canalInfo.id = canais.length;
-                canais.push(canalInfo);
-                canalInfo = {};
+            } else if (linha && linha.length > 4) {
+                const linhaTrimmed = linha.trim();
+                // Aceitar URLs http, https e também rtmp, rtsp
+                if (linhaTrimmed.match(/^https?:\/\/|^rtmp:\/\/|^rtsp:\/\//i)) {
+                    canalInfo.url = linhaTrimmed;
+                    canalInfo.id = canais.length;
+                    // Criar cópia do objeto para evitar referências
+                    canais.push({
+                        id: canalInfo.id,
+                        nome: canalInfo.nome || 'Canal sem nome',
+                        logo: canalInfo.logo || null,
+                        grupo: canalInfo.grupo || 'Sem categoria',
+                        tvgId: canalInfo.tvgId || null,
+                        tvgName: canalInfo.tvgName || null,
+                        url: canalInfo.url
+                    });
+                    canalInfo = {};
+                }
             }
             
             index++;
@@ -418,6 +436,15 @@ function escapeHtml(text) {
 
 // Função para tocar canal
 function tocarCanal(canal, elemento) {
+    console.log('Tentando reproduzir:', canal.nome, canal.url);
+    
+    // Verificar se a URL existe
+    if (!canal.url) {
+        console.error('URL do canal não encontrada!');
+        alert('Este canal não possui uma URL válida.');
+        return;
+    }
+    
     // Remover classe ativo de todos
     document.querySelectorAll('.canal-item').forEach(item => item.classList.remove('ativo'));
     
@@ -430,46 +457,92 @@ function tocarCanal(canal, elemento) {
     if (videoOverlay) videoOverlay.style.display = 'none';
     
     // Atualizar nome do canal atual
-    if (canalAtual) canalAtual.textContent = canal.nome;
+    if (canalAtual) canalAtual.textContent = canal.nome + ' (Carregando...)';
 
     // Destruir instância HLS anterior se existir
     if (hlsInstance) {
         hlsInstance.destroy();
         hlsInstance = null;
     }
+    
+    // Limpar o video
+    videoPlayer.src = '';
 
-    if (Hls.isSupported()) {
+    // Verificar tipo de stream
+    const url = canal.url;
+    const isHLS = url.includes('.m3u8') || url.includes('m3u8');
+    
+    if (Hls.isSupported() && (isHLS || !url.includes('.mp4'))) {
         hlsInstance = new Hls({
             enableWorker: true,
-            lowLatencyMode: true,
+            lowLatencyMode: false,
             maxBufferLength: 30,
-            maxMaxBufferLength: 60
+            maxMaxBufferLength: 60,
+            startLevel: -1, // Auto quality
+            capLevelToPlayerSize: true,
+            debug: false
         });
-        hlsInstance.loadSource(canal.url);
+        
+        hlsInstance.loadSource(url);
         hlsInstance.attachMedia(videoPlayer);
+        
         hlsInstance.on(Hls.Events.MANIFEST_PARSED, () => {
-            videoPlayer.play().catch(e => console.log('Autoplay bloqueado'));
+            console.log('Stream carregado com sucesso');
+            if (canalAtual) canalAtual.textContent = canal.nome;
+            videoPlayer.play().catch(e => console.log('Autoplay bloqueado:', e));
         });
+        
         hlsInstance.on(Hls.Events.ERROR, (event, data) => {
-            console.error('HLS Error:', data);
+            console.error('HLS Error:', data.type, data.details);
+            
             if (data.fatal) {
                 switch(data.type) {
                     case Hls.ErrorTypes.NETWORK_ERROR:
-                        hlsInstance.startLoad();
+                        console.log('Erro de rede, tentando reconectar...');
+                        if (canalAtual) canalAtual.textContent = canal.nome + ' (Reconectando...)';
+                        setTimeout(() => {
+                            if (hlsInstance) hlsInstance.startLoad();
+                        }, 2000);
                         break;
                     case Hls.ErrorTypes.MEDIA_ERROR:
+                        console.log('Erro de mídia, tentando recuperar...');
                         hlsInstance.recoverMediaError();
                         break;
                     default:
-                        console.error('Erro fatal, não é possível recuperar');
+                        console.error('Erro fatal - Canal pode estar offline');
+                        if (canalAtual) canalAtual.textContent = canal.nome + ' (Offline/Erro)';
+                        // Tentar reprodução direta como fallback
+                        tentarReproducaoDireta(canal);
                         break;
                 }
             }
         });
     } else if (videoPlayer.canPlayType('application/vnd.apple.mpegurl')) {
-        videoPlayer.src = canal.url;
-        videoPlayer.play().catch(e => console.log('Autoplay bloqueado'));
+        // Safari nativo
+        videoPlayer.src = url;
+        videoPlayer.addEventListener('loadedmetadata', () => {
+            if (canalAtual) canalAtual.textContent = canal.nome;
+            videoPlayer.play().catch(e => console.log('Autoplay bloqueado'));
+        }, { once: true });
     } else {
-        alert('Seu navegador não suporta reprodução HLS');
+        // Tentar reprodução direta
+        tentarReproducaoDireta(canal);
     }
+}
+
+// Fallback para reprodução direta
+function tentarReproducaoDireta(canal) {
+    console.log('Tentando reprodução direta...');
+    videoPlayer.src = canal.url;
+    videoPlayer.load();
+    
+    videoPlayer.onloadeddata = () => {
+        if (canalAtual) canalAtual.textContent = canal.nome;
+        videoPlayer.play().catch(e => console.log('Autoplay bloqueado'));
+    };
+    
+    videoPlayer.onerror = () => {
+        console.error('Falha na reprodução direta');
+        if (canalAtual) canalAtual.textContent = canal.nome + ' (Não disponível)';
+    };
 }
